@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ALLPRO — Career stats across NBA, MLB &amp; NFL</title>
+<style>
+:root{
+ --ink:#12130f;--panel:#1a1c15;--line:#33361f;--paper:#eae6d6;--dim:#9a9a86;
+ --nba:#c8622a;--mlb:#4c6b4f;--nfl:#7a4a9c;
+ --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;--serif:Georgia,"Times New Roman",serif;
+ padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root[data-theme="light"]{
+ --ink:#f5f2e8;--panel:#e8e3d2;--line:#cfc9b0;--paper:#1c1d16;--dim:#6b6a55;
+}
+:root[data-theme="light"] .detail td{background:#ece7d6}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--serif);transition:background .15s,color .15s}
+a{color:inherit}
+.wrap{width:min(1100px,calc(100% - 40px));margin:0 auto}
+header{padding:36px 0 20px;border-bottom:1px solid var(--line)}
+h1{font:400 34px var(--serif);margin:0 0 4px;letter-spacing:.01em}
+h1 b{font-weight:700;color:var(--nba)}
+.sub{color:var(--dim);font:13px var(--mono);margin:0}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 0}
+#q{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);color:var(--paper);padding:11px 14px;font:15px var(--serif);border-radius:3px}
+#q:focus{outline:1px solid var(--nba)}
+.tab{background:none;border:1px solid var(--line);color:var(--dim);padding:11px 16px;font:12px var(--mono);letter-spacing:.06em;border-radius:3px;cursor:pointer}
+.tab.on{color:var(--ink);background:var(--paper);border-color:var(--paper)}
+#themeBtn{margin-left:auto;background:none;border:1px solid var(--line);color:var(--dim);padding:11px 14px;font:16px var(--mono);border-radius:3px;cursor:pointer}
+#themeBtn:hover{color:var(--paper)}
+main{padding:24px 0 70px}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:520px}
+th{text-align:left;font:12px var(--mono);color:var(--dim);font-weight:400;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
+th:hover{color:var(--paper)}
+td{padding:10px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--panel)}
+.lg{display:inline-block;font:11px var(--mono);padding:2px 6px;border-radius:2px;color:#111}
+.lg.NBA{background:var(--nba)}.lg.MLB{background:var(--mlb)}.lg.NFL{background:var(--nfl)}
+.nm{font-weight:700}
+.meta{color:var(--dim);font-size:12px}
+.detail{display:none}
+.detail.open{display:table-row}
+.detail td{background:#141610;padding:16px 20px}
+.stats{display:flex;gap:26px;flex-wrap:wrap}
+.stat{min-width:90px}
+.stat b{display:block;font:22px var(--mono);font-weight:600}
+.stat span{font:11px var(--mono);color:var(--dim)}
+.count{color:var(--dim);font:12px var(--mono);margin:14px 0 0}
+.empty{color:var(--dim);padding:30px 0;font-style:italic}
+footer{border-top:1px solid var(--line);padding:18px 0;color:var(--dim);font:12px var(--mono)}
+@media (max-width:600px){
+ .wrap{width:calc(100% - 28px)}
+ header{padding:24px 0 16px}
+ h1{font-size:26px}
+ .sub{font-size:11px}
+ .controls{gap:8px}
+ #q{min-width:100%;order:-1}
+ .tab{padding:9px 13px;font-size:11px}
+ #themeBtn{margin-left:0;padding:9px 12px}
+ th,td{padding:8px 6px;font-size:13px}
+ .detail td{padding:12px 14px}
+ .stats{gap:16px}
+ .stat b{font-size:19px}
+}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1><b>ALLPRO</b> — one table, three leagues</h1>
+<p class="sub">A working sample of NBA, MLB &amp; NFL careers touching 2000–2026. Not exhaustive — a starting roster.</p>
+<div class="controls">
+<input id="q" placeholder="Search a player…">
+<button class="tab on" data-lg="ALL">ALL</button>
+<button class="tab" data-lg="NBA">NBA</button>
+<button class="tab" data-lg="MLB">MLB</button>
+<button class="tab" data-lg="NFL">NFL</button>
+<button id="themeBtn" title="Toggle light/dark">◐</button>
+</div>
+</div></header>
+<main><div class="wrap">
+<div class="table-wrap">
+<table>
+<thead><tr><th data-k="lg">Lg</th><th data-k="n">Player</th><th data-k="pos">Pos</th><th data-k="tm">Team(s)</th><th data-k="yrs">Years</th></tr></thead>
+<tbody id="body"></tbody>
+</table>
+</div>
+<p class="empty" id="empty" style="display:none">No players match.</p>
+<p class="count" id="count"></p>
+</div></main>
+<footer><div class="wrap">Career figures are approximate career totals as of the end of the 2025 season/2025–26 season and may not reflect the most recent games. Verify exact figures before citing.</div></footer>
+<script>
+const P=[
+{lg:"NBA",n:"LeBron James",pos:"SF/PF",tm:"CLE/MIA/LAL",yrs:"2003–",st:[["PTS","41,600+"],["REB","11,400"],["AST","11,000"],["FG%",".505"],["Titles","4"]]},
+{lg:"NBA",n:"Kobe Bryant",pos:"SG",tm:"LAL",yrs:"1996–2016",st:[["PTS","33,643"],["REB","7,047"],["AST","6,306"],["FG%",".447"],["Titles","5"]]},
+{lg:"NBA",n:"Tim Duncan",pos:"PF/C",tm:"SAS",yrs:"1997–2016",st:[["PTS","26,496"],["REB","15,091"],["BLK","3,020"],["FG%",".506"],["Titles","5"]]},
+{lg:"NBA",n:"Shaquille O\'Neal",pos:"C",tm:"ORL/LAL/MIA/PHX/CLE/BOS",yrs:"1992–2011",st:[["PTS","28,596"],["REB","13,099"],["FG%",".582"],["MVP","1"],["Titles","4"]]},
+{lg:"NBA",n:"Dirk Nowitzki",pos:"PF",tm:"DAL",yrs:"1998–2019",st:[["PTS","31,560"],["REB","11,489"],["3PM","1,982"],["MVP","1"],["Titles","1"]]},
+{lg:"NBA",n:"Kevin Durant",pos:"SF/PF",tm:"SEA/OKC/GSW/BKN/PHX",yrs:"2007–",st:[["PTS","30,900+"],["REB","7,300+"],["AST","4,700+"],["MVP","1"],["Titles","2"]]},
+{lg:"NBA",n:"Stephen Curry",pos:"PG",tm:"GSW",yrs:"2009–",st:[["PTS","24,500+"],["3PM","3,900+"],["AST","6,600+"],["MVP","2"],["Titles","4"]]},
+{lg:"NBA",n:"Kevin Garnett",pos:"PF/C",tm:"MIN/BOS/BKN",yrs:"1995–2016",st:[["PTS","26,071"],["REB","14,662"],["BLK","2,037"],["MVP","1"],["Titles","1"]]},
+{lg:"NBA",n:"Dwyane Wade",pos:"SG",tm:"MIA/CHI/CLE",yrs:"2003–2019",st:[["PTS","23,165"],["AST","5,282"],["STL","1,761"],["Finals MVP","1"],["Titles","3"]]},
+{lg:"NBA",n:"Chris Paul",pos:"PG",tm:"NOH/LAC/HOU/OKC/PHX/GSW/SAS",yrs:"2005–",st:[["PTS","21,700+"],["AST","12,400+"],["STL","2,500+"],["All-Star","12"],["Titles","0"]]},
+{lg:"NBA",n:"Kawhi Leonard",pos:"SF",tm:"SAS/TOR/LAC",yrs:"2011–",st:[["PTS","15,800+"],["STL","1,400+"],["Finals MVP","2"],["DPOY","2"],["Titles","2"]]},
+{lg:"NBA",n:"Giannis Antetokounmpo",pos:"PF",tm:"MIL",yrs:"2013–",st:[["PTS","20,900+"],["REB","9,500+"],["BLK","1,000+"],["MVP","2"],["Titles","1"]]},
+{lg:"NBA",n:"James Harden",pos:"SG",tm:"OKC/HOU/BKN/PHI/LAC",yrs:"2009–",st:[["PTS","26,500+"],["AST","8,000+"],["3PM","2,700+"],["MVP","1"],["Titles","0"]]},
+{lg:"NBA",n:"Nikola Jokic",pos:"C",tm:"DEN",yrs:"2015–",st:[["PTS","15,800+"],["AST","6,000+"],["REB","8,900+"],["MVP","3"],["Titles","1"]]},
+{lg:"NBA",n:"Russell Westbrook",pos:"PG",tm:"OKC/HOU/WAS/LAL/LAC/DEN",yrs:"2008–",st:[["PTS","25,600+"],["AST","9,200+"],["REB","8,000+"],["Trip-dbls","200+"],["MVP","1"]]},
+{lg:"NBA",n:"Carmelo Anthony",pos:"SF",tm:"DEN/NYK/OKC/POR/LAL",yrs:"2003–2022",st:[["PTS","28,289"],["REB","7,679"],["3PM","2,101"],["All-Star","10"],["Titles","0"]]},
+{lg:"NBA",n:"Vince Carter",pos:"SG/SF",tm:"TOR/NJN/ORL/PHX/DAL/MEM/SAC/ATL",yrs:"1998–2020",st:[["PTS","25,728"],["3PM","2,290"],["Seasons","22"],["All-Star","8"],["Titles","0"]]},
+{lg:"NBA",n:"Allen Iverson",pos:"PG/SG",tm:"PHI/DEN/DET",yrs:"1996–2010",st:[["PTS","24,368"],["STL","1,983"],["PPG","26.7"],["MVP","1"],["All-Star","11"]]},
+{lg:"NBA",n:"Paul Pierce",pos:"SF",tm:"BOS/BKN/WAS/LAC",yrs:"1998–2017",st:[["PTS","26,397"],["3PM","2,143"],["Finals MVP","1"],["All-Star","10"],["Titles","1"]]},
+{lg:"NBA",n:"Ray Allen",pos:"SG",tm:"MIL/SEA/BOS/MIA",yrs:"1996–2014",st:[["PTS","24,505"],["3PM","2,973"],["FT%",".894"],["All-Star","10"],["Titles","2"]]},
+{lg:"NBA",n:"Steve Nash",pos:"PG",tm:"PHX/DAL/LAL",yrs:"1996–2015",st:[["AST","10,335"],["PTS","17,387"],["FT%",".904"],["MVP","2"],["All-Star","8"]]},
+{lg:"NBA",n:"Dwight Howard",pos:"C",tm:"ORL/LAL/HOU/ATL/CHA/WAS/PHI",yrs:"2004–2022",st:[["REB","14,627"],["PTS","18,270"],["BLK","2,212"],["DPOY","3"],["Titles","1"]]},
+{lg:"NBA",n:"Chris Bosh",pos:"PF/C",tm:"TOR/MIA",yrs:"2003–2016",st:[["PTS","18,832"],["REB","8,968"],["All-Star","11"],["Titles","2"],["FG%",".497"]]},
+{lg:"NBA",n:"Manu Ginobili",pos:"SG/SF",tm:"SAS",yrs:"2002–2018",st:[["PTS","14,043"],["AST","3,808"],["STL","1,392"],["Sixth Man","1"],["Titles","4"]]},
+{lg:"NBA",n:"Tony Parker",pos:"PG",tm:"SAS/CHA",yrs:"2001–2019",st:[["PTS","19,376"],["AST","6,829"],["Finals MVP","1"],["All-Star","6"],["Titles","4"]]},
+{lg:"NBA",n:"Pau Gasol",pos:"PF/C",tm:"MEM/LAL/CHI/SAS/MIL",yrs:"2001–2019",st:[["PTS","20,894"],["REB","11,210"],["BLK","1,509"],["All-Star","6"],["Titles","2"]]},
+{lg:"NBA",n:"Jason Kidd",pos:"PG",tm:"DAL/PHX/NJN/NYK",yrs:"1994–2013",st:[["AST","12,091"],["PTS","17,529"],["STL","2,684"],["All-Star","10"],["Titles","1"]]},
+{lg:"NBA",n:"Grant Hill",pos:"SF",tm:"DET/ORL/PHX/LAC",yrs:"1994–2013",st:[["PTS","17,533"],["REB","6,606"],["AST","4,296"],["All-Star","7"],["ROY","1"]]},
+{lg:"NBA",n:"Tracy McGrady",pos:"SG/SF",tm:"TOR/ORL/HOU/NYK/DET/ATL/SAS",yrs:"1997–2013",st:[["PTS","18,381"],["PPG","19.6"],["REB","5,276"],["All-Star","7"],["Scoring titles","2"]]},
+{lg:"NBA",n:"Yao Ming",pos:"C",tm:"HOU",yrs:"2002–2011",st:[["PTS","9,247"],["REB","4,494"],["BLK","920"],["All-Star","8"],["FG%",".524"]]},
+{lg:"NBA",n:"Amar\'e Stoudemire",pos:"PF",tm:"PHX/NYK/DAL/MIA",yrs:"2002–2016",st:[["PTS","16,720"],["REB","6,331"],["All-Star","6"],["ROY","1"],["FG%",".538"]]},
+{lg:"NBA",n:"Blake Griffin",pos:"PF/C",tm:"LAC/DET/BKN/BOS",yrs:"2009–2023",st:[["PTS","15,301"],["REB","6,542"],["AST","2,589"],["All-Star","6"],["ROY","1"]]},
+{lg:"NBA",n:"Damian Lillard",pos:"PG",tm:"POR/MIL",yrs:"2012–",st:[["PTS","21,000+"],["3PM","2,500+"],["AST","5,700+"],["All-Star","8"],["Titles","0"]]},
+{lg:"NBA",n:"Kyrie Irving",pos:"PG",tm:"CLE/BOS/BKN/DAL",yrs:"2011–",st:[["PTS","21,500+"],["AST","4,900+"],["Finals MVP","1"],["All-Star","9"],["Titles","1"]]},
+{lg:"NBA",n:"Anthony Davis",pos:"PF/C",tm:"NOP/LAL",yrs:"2012–",st:[["PTS","22,000+"],["REB","9,500+"],["BLK","1,900+"],["All-Star","9"],["Titles","1"]]},
+{lg:"NBA",n:"Joel Embiid",pos:"C",tm:"PHI",yrs:"2014–",st:[["PTS","15,000+"],["REB","6,500+"],["BLK","900+"],["MVP","1"],["All-Star","7"]]},
+{lg:"NBA",n:"Luka Doncic",pos:"PG/SG",tm:"DAL/LAL",yrs:"2018–",st:[["PTS","15,500+"],["AST","4,700+"],["REB","5,500+"],["All-Star","5"],["Titles","0"]]},
+{lg:"NBA",n:"Jayson Tatum",pos:"SF",tm:"BOS",yrs:"2017–",st:[["PTS","16,500+"],["REB","5,600+"],["Finals MVP","0"],["All-Star","6"],["Titles","1"]]},
+{lg:"NBA",n:"Klay Thompson",pos:"SG",tm:"GSW/DAL",yrs:"2011–",st:[["PTS","17,000+"],["3PM","2,500+"],["All-Star","5"],["Titles","4"],["FG%",".462"]]},
+{lg:"NBA",n:"Draymond Green",pos:"PF/C",tm:"GSW",yrs:"2012–",st:[["AST","4,000+"],["STL","1,100+"],["DPOY","1"],["All-Star","4"],["Titles","4"]]},
+{lg:"NBA",n:"Paul George",pos:"SF",tm:"IND/OKC/LAC/PHI",yrs:"2010–",st:[["PTS","20,500+"],["3PM","2,200+"],["All-Star","9"],["All-Defense","8"],["Titles","0"]]},
+{lg:"NBA",n:"Devin Booker",pos:"SG",tm:"PHX",yrs:"2015–",st:[["PTS","17,500+"],["AST","3,700+"],["All-Star","4"],["Scoring title","0"],["Titles","0"]]},
+{lg:"NBA",n:"Jimmy Butler",pos:"SF",tm:"CHI/MIN/PHI/MIA/GS",yrs:"2011–",st:[["PTS","16,000+"],["STL","1,300+"],["All-Star","6"],["Titles","0"],["All-Defense","5"]]},
+{lg:"MLB",n:"Barry Bonds",pos:"OF",tm:"PIT/SF",yrs:"1986–2007",st:[["HR","762"],["AVG",".298"],["OBP",".444"],["MVP","7"],["SB","514"]]},
+{lg:"MLB",n:"Alex Rodriguez",pos:"SS/3B",tm:"SEA/TEX/NYY",yrs:"1994–2016",st:[["HR","696"],["RBI","2,086"],["AVG",".295"],["MVP","3"],["Titles","1"]]},
+{lg:"MLB",n:"Derek Jeter",pos:"SS",tm:"NYY",yrs:"1995–2014",st:[["Hits","3,465"],["AVG",".310"],["Runs","1,923"],["Titles","5"],["All-Star","14"]]},
+{lg:"MLB",n:"Albert Pujols",pos:"1B",tm:"STL/LAA/LAD",yrs:"2001–2022",st:[["HR","703"],["RBI","2,218"],["AVG",".296"],["MVP","3"],["Titles","2"]]},
+{lg:"MLB",n:"Ichiro Suzuki",pos:"OF",tm:"SEA/NYY/MIA",yrs:"2001–2019",st:[["Hits","3,089"],["AVG",".311"],["SB","509"],["MVP","1"],["All-Star","10"]]},
+{lg:"MLB",n:"Mariano Rivera",pos:"P",tm:"NYY",yrs:"1995–2013",st:[["Saves","652"],["ERA","2.21"],["WHIP","1.00"],["Titles","5"],["All-Star","13"]]},
+{lg:"MLB",n:"Randy Johnson",pos:"P",tm:"MTL/SEA/HOU/ARI/NYY/SF",yrs:"1988–2009",st:[["Wins","303"],["K","4,875"],["ERA","3.29"],["Cy Young","5"],["Titles","1"]]},
+{lg:"MLB",n:"Pedro Martinez",pos:"P",tm:"LAD/MTL/BOS/NYM/PHI",yrs:"1992–2009",st:[["Wins","219"],["ERA","2.93"],["K","3,154"],["Cy Young","3"],["Titles","1"]]},
+{lg:"MLB",n:"Miguel Cabrera",pos:"1B/3B",tm:"FLA/DET",yrs:"2003–2023",st:[["HR","511"],["AVG",".306"],["RBI","1,881"],["MVP","2"],["Triple Crown","1"]]},
+{lg:"MLB",n:"Clayton Kershaw",pos:"P",tm:"LAD",yrs:"2008–",st:[["Wins","220+"],["ERA","2.48"],["K","3,000+"],["Cy Young","3"],["Titles","1"]]},
+{lg:"MLB",n:"Mike Trout",pos:"OF",tm:"LAA",yrs:"2011–",st:[["HR","390+"],["AVG",".300"],["OBP",".410"],["MVP","3"],["All-Star","11"]]},
+{lg:"MLB",n:"Justin Verlander",pos:"P",tm:"DET/HOU",yrs:"2005–",st:[["Wins","260+"],["K","3,400+"],["ERA","3.26"],["Cy Young","3"],["Titles","2"]]},
+{lg:"MLB",n:"Max Scherzer",pos:"P",tm:"ARI/DET/WSN/NYM/TEX/TOR",yrs:"2008–",st:[["Wins","215+"],["K","3,400+"],["ERA","3.15"],["Cy Young","3"],["Titles","1"]]},
+{lg:"MLB",n:"Bryce Harper",pos:"OF/1B",tm:"WSN/PHI",yrs:"2012–",st:[["HR","320+"],["AVG",".280"],["OBP",".390"],["MVP","2"],["Titles","0"]]},
+{lg:"MLB",n:"Shohei Ohtani",pos:"DH/P",tm:"LAA/LAD",yrs:"2018–",st:[["HR","230+"],["Wins","38+"],["K","600+"],["MVP","3"],["Titles","1"]]},
+{lg:"MLB",n:"Aaron Judge",pos:"OF",tm:"NYY",yrs:"2016–",st:[["HR","320+"],["AVG",".280"],["OBP",".410"],["MVP","2"],["AL HR record","62"]]},
+{lg:"MLB",n:"Mookie Betts",pos:"OF/2B",tm:"BOS/LAD",yrs:"2014–",st:[["HR","250+"],["AVG",".295"],["SB","150+"],["MVP","1"],["Titles","2"]]},
+{lg:"MLB",n:"Freddie Freeman",pos:"1B",tm:"ATL/LAD",yrs:"2010–",st:[["HR","350+"],["AVG",".300"],["Hits","2,300+"],["MVP","1"],["Titles","2"]]},
+{lg:"MLB",n:"Manny Ramirez",pos:"OF",tm:"CLE/BOS/LAD/CHW/TB",yrs:"1993–2011",st:[["HR","555"],["RBI","1,831"],["AVG",".312"],["Titles","2"],["All-Star","12"]]},
+{lg:"MLB",n:"David Ortiz",pos:"DH",tm:"MIN/BOS",yrs:"1997–2016",st:[["HR","541"],["RBI","1,768"],["AVG",".286"],["Titles","3"],["All-Star","10"]]},
+{lg:"MLB",n:"Chipper Jones",pos:"3B",tm:"ATL",yrs:"1993–2012",st:[["HR","468"],["AVG",".303"],["OBP",".401"],["MVP","1"],["Titles","1"]]},
+{lg:"MLB",n:"Ken Griffey Jr.",pos:"OF",tm:"SEA/CIN/CHW",yrs:"1989–2010",st:[["HR","630"],["AVG",".284"],["RBI","1,836"],["MVP","1"],["Gold Gloves","10"]]},
+{lg:"MLB",n:"Frank Thomas",pos:"1B/DH",tm:"CHW/OAK/TOR",yrs:"1990–2008",st:[["HR","521"],["AVG",".301"],["OBP",".419"],["MVP","2"],["All-Star","5"]]},
+{lg:"MLB",n:"Jim Thome",pos:"1B/DH",tm:"CLE/PHI/CHW/LAD/MIN/BAL",yrs:"1991–2012",st:[["HR","612"],["AVG",".276"],["BB","1,747"],["All-Star","5"],["Titles","0"]]},
+{lg:"MLB",n:"Todd Helton",pos:"1B",tm:"COL",yrs:"1997–2013",st:[["HR","369"],["AVG",".316"],["OBP",".414"],["Gold Gloves","3"],["All-Star","5"]]},
+{lg:"MLB",n:"Vladimir Guerrero",pos:"OF",tm:"MTL/LAA/TEX/BAL",yrs:"1996–2011",st:[["HR","449"],["AVG",".318"],["RBI","1,496"],["MVP","1"],["All-Star","9"]]},
+{lg:"MLB",n:"Roy Halladay",pos:"P",tm:"TOR/PHI",yrs:"1998–2013",st:[["Wins","203"],["ERA","3.38"],["CG","67"],["Cy Young","2"],["Titles","0"]]},
+{lg:"MLB",n:"CC Sabathia",pos:"P",tm:"CLE/MIL/NYY",yrs:"2001–2019",st:[["Wins","251"],["K","3,093"],["ERA","3.74"],["Cy Young","1"],["Titles","1"]]},
+{lg:"MLB",n:"John Smoltz",pos:"P",tm:"ATL/BOS/STL",yrs:"1988–2009",st:[["Wins","213"],["Saves","154"],["K","3,084"],["Cy Young","1"],["Titles","1"]]},
+{lg:"MLB",n:"Curt Schilling",pos:"P",tm:"BAL/HOU/PHI/ARI/BOS",yrs:"1988–2007",st:[["Wins","216"],["K","3,116"],["ERA","3.46"],["Titles","3"],["All-Star","6"]]},
+{lg:"MLB",n:"Adrian Beltre",pos:"3B",tm:"LAD/SEA/BOS/TEX",yrs:"1998–2018",st:[["HR","477"],["Hits","3,166"],["AVG",".286"],["Gold Gloves","5"],["All-Star","4"]]},
+{lg:"MLB",n:"Joe Mauer",pos:"C/1B",tm:"MIN",yrs:"2004–2018",st:[["AVG",".306"],["OBP",".388"],["Batting titles","3"],["MVP","1"],["All-Star","6"]]},
+{lg:"MLB",n:"Buster Posey",pos:"C",tm:"SF",yrs:"2009–2021",st:[["AVG",".302"],["HR","158"],["Batting title","1"],["MVP","1"],["Titles","3"]]},
+{lg:"MLB",n:"Nolan Arenado",pos:"3B",tm:"COL/STL",yrs:"2013–",st:[["HR","340+"],["RBI","1,050+"],["Gold Gloves","10"],["All-Star","7"],["Titles","0"]]},
+{lg:"MLB",n:"Jose Altuve",pos:"2B",tm:"HOU",yrs:"2011–",st:[["Hits","2,300+"],["AVG",".305"],["SB","300+"],["MVP","1"],["Titles","1"]]},
+{lg:"MLB",n:"Francisco Lindor",pos:"SS",tm:"CLE/NYM",yrs:"2015–",st:[["HR","220+"],["SB","190+"],["All-Star","4"],["Gold Gloves","2"],["Titles","0"]]},
+{lg:"MLB",n:"Ronald Acuna Jr.",pos:"OF",tm:"ATL",yrs:"2018–",st:[["HR","190+"],["SB","220+"],["40/70 season","1"],["MVP","1"],["Titles","1"]]},
+{lg:"MLB",n:"Juan Soto",pos:"OF",tm:"WSN/SD/NYY",yrs:"2018–",st:[["HR","220+"],["AVG",".285"],["OBP",".420"],["Titles","1"],["All-Star","5"]]},
+{lg:"MLB",n:"Gerrit Cole",pos:"P",tm:"PIT/HOU/NYY",yrs:"2013–",st:[["Wins","150+"],["K","2,300+"],["ERA","3.20"],["Cy Young","1"],["Titles","0"]]},
+{lg:"MLB",n:"Zack Greinke",pos:"P",tm:"KC/MIL/LAA/LAD/ARI/HOU",yrs:"2004–2024",st:[["Wins","225"],["ERA","3.35"],["K","3,000+"],["Cy Young","1"],["Gold Gloves","6"]]},
+{lg:"MLB",n:"Corbin Burnes",pos:"P",tm:"MIL/BAL/AZ",yrs:"2018–",st:[["Wins","70+"],["ERA","3.00"],["K","1,000+"],["Cy Young","1"],["All-Star","3"]]},
+{lg:"MLB",n:"Fernando Tatis Jr.",pos:"SS/OF",tm:"SD",yrs:"2019–",st:[["HR","150+"],["SB","100+"],["All-Star","2"],["Silver Slugger","2"],["Titles","0"]]},
+{lg:"NFL",n:"Tom Brady",pos:"QB",tm:"NE/TB",yrs:"2000–2022",st:[["Pass Yds","89,214"],["TD","649"],["INT","212"],["MVP","3"],["Titles","7"]]},
+{lg:"NFL",n:"Peyton Manning",pos:"QB",tm:"IND/DEN",yrs:"1998–2015",st:[["Pass Yds","71,940"],["TD","539"],["INT","251"],["MVP","5"],["Titles","2"]]},
+{lg:"NFL",n:"Drew Brees",pos:"QB",tm:"SD/NO",yrs:"2001–2020",st:[["Pass Yds","80,358"],["TD","571"],["Comp%",".675"],["MVP","1"],["Titles","1"]]},
+{lg:"NFL",n:"Aaron Rodgers",pos:"QB",tm:"GB/NYJ",yrs:"2005–",st:[["Pass Yds","60,000+"],["TD","480+"],["Rating","101.2"],["MVP","4"],["Titles","1"]]},
+{lg:"NFL",n:"Patrick Mahomes",pos:"QB",tm:"KC",yrs:"2017–",st:[["Pass Yds","32,000+"],["TD","250+"],["MVP","2"],["SB MVP","3"],["Titles","3"]]},
+{lg:"NFL",n:"Adrian Peterson",pos:"RB",tm:"MIN/NO/ARI/WAS/DET/SEA/TEN",yrs:"2007–2021",st:[["Rush Yds","14,918"],["TD","120"],["YPC","4.6"],["MVP","1"],["Pro Bowl","7"]]},
+{lg:"NFL",n:"LaDainian Tomlinson",pos:"RB",tm:"SD/NYJ",yrs:"2001–2011",st:[["Rush Yds","13,684"],["TD","162"],["Rec","624"],["MVP","1"],["Pro Bowl","5"]]},
+{lg:"NFL",n:"Emmitt Smith",pos:"RB",tm:"DAL/ARI",yrs:"1990–2004",st:[["Rush Yds","18,355"],["TD","175"],["Rush titles","4"],["Titles","3"],["MVP","1"]]},
+{lg:"NFL",n:"Jerry Rice",pos:"WR",tm:"SF/OAK/SEA",yrs:"1985–2004",st:[["Rec Yds","22,895"],["TD","197"],["Rec","1,549"],["Titles","3"],["MVP","1"]]},
+{lg:"NFL",n:"Randy Moss",pos:"WR",tm:"MIN/OAK/NE/TEN/SF",yrs:"1998–2012",st:[["Rec Yds","15,292"],["TD","156"],["Rec","982"],["All-Pro","4"],["Pro Bowl","6"]]},
+{lg:"NFL",n:"Larry Fitzgerald",pos:"WR",tm:"ARI",yrs:"2004–2020",st:[["Rec Yds","17,492"],["Rec","1,432"],["TD","121"],["All-Pro","1"],["Pro Bowl","11"]]},
+{lg:"NFL",n:"Calvin Johnson",pos:"WR",tm:"DET",yrs:"2007–2015",st:[["Rec Yds","11,619"],["TD","83"],["Rec","731"],["All-Pro","3"],["Pro Bowl","6"]]},
+{lg:"NFL",n:"Jason Witten",pos:"TE",tm:"DAL/LV",yrs:"2003–2020",st:[["Rec Yds","13,046"],["Rec","1,228"],["TD","68"],["Pro Bowl","11"],["Titles","0"]]},
+{lg:"NFL",n:"J.J. Watt",pos:"DE",tm:"HOU/ARI",yrs:"2011–2022",st:[["Sacks","114.5"],["Tackles","550+"],["FF","26"],["DPOY","3"],["Pro Bowl","5"]]},
+{lg:"NFL",n:"Aaron Donald",pos:"DT",tm:"LAR",yrs:"2014–2023",st:[["Sacks","111"],["Tackles","450+"],["FF","23"],["DPOY","3"],["Titles","1"]]},
+{lg:"NFL",n:"Von Miller",pos:"OLB",tm:"DEN/LAR/BUF",yrs:"2011–",st:[["Sacks","120+"],["FF","30+"],["SB MVP","1"],["Pro Bowl","8"],["Titles","2"]]},
+{lg:"NFL",n:"Ray Lewis",pos:"LB",tm:"BAL",yrs:"1996–2012",st:[["Tackles","2,059"],["INT","31"],["FF","19"],["DPOY","2"],["Titles","2"]]},
+{lg:"NFL",n:"Ed Reed",pos:"S",tm:"BAL/HOU/NYJ",yrs:"2002–2013",st:[["INT","64"],["Return Yds","1,590"],["TD","13"],["DPOY","1"],["Pro Bowl","9"]]},
+{lg:"NFL",n:"Rob Gronkowski",pos:"TE",tm:"NE/TB",yrs:"2010–2021",st:[["Rec Yds","9,286"],["TD","92"],["Rec","621"],["All-Pro","4"],["Titles","4"]]},
+{lg:"NFL",n:"Julio Jones",pos:"WR",tm:"ATL/TEN/TB/PHI",yrs:"2011–",st:[["Rec Yds","13,000+"],["Rec","900+"],["TD","65+"],["All-Pro","3"],["Pro Bowl","7"]]},
+{lg:"NFL",n:"Brett Favre",pos:"QB",tm:"ATL/GB/NYJ/MIN",yrs:"1991–2010",st:[["Pass Yds","71,838"],["TD","508"],["INT","336"],["MVP","3"],["Titles","1"]]},
+{lg:"NFL",n:"Kurt Warner",pos:"QB",tm:"STL/NYG/ARI",yrs:"1998–2009",st:[["Pass Yds","32,344"],["TD","208"],["Rating","93.7"],["MVP","2"],["Titles","1"]]},
+{lg:"NFL",n:"Ben Roethlisberger",pos:"QB",tm:"PIT",yrs:"2004–2021",st:[["Pass Yds","64,088"],["TD","418"],["INT","251"],["Pro Bowl","6"],["Titles","2"]]},
+{lg:"NFL",n:"Eli Manning",pos:"QB",tm:"NYG",yrs:"2004–2019",st:[["Pass Yds","57,023"],["TD","366"],["INT","244"],["SB MVP","2"],["Titles","2"]]},
+{lg:"NFL",n:"Philip Rivers",pos:"QB",tm:"SD/LAC/IND",yrs:"2004–2020",st:[["Pass Yds","63,440"],["TD","421"],["INT","209"],["Pro Bowl","8"],["Titles","0"]]},
+{lg:"NFL",n:"Russell Wilson",pos:"QB",tm:"SEA/DEN/PIT/NYG",yrs:"2012–",st:[["Pass Yds","42,000+"],["TD","280+"],["Rating","100+"],["Pro Bowl","9"],["Titles","1"]]},
+{lg:"NFL",n:"Marshawn Lynch",pos:"RB",tm:"BUF/SEA/OAK",yrs:"2007–2019",st:[["Rush Yds","10,413"],["TD","94"],["Pro Bowl","5"],["All-Pro","2"],["Titles","1"]]},
+{lg:"NFL",n:"Antonio Brown",pos:"WR",tm:"PIT/OAK/NE/TB",yrs:"2010–2021",st:[["Rec Yds","12,291"],["Rec","928"],["TD","83"],["All-Pro","4"],["Pro Bowl","7"]]},
+{lg:"NFL",n:"DeAndre Hopkins",pos:"WR",tm:"HOU/ARI/TEN/KC/BAL",yrs:"2013–",st:[["Rec Yds","12,000+"],["Rec","900+"],["TD","70+"],["All-Pro","3"],["Pro Bowl","5"]]},
+{lg:"NFL",n:"Davante Adams",pos:"WR",tm:"GB/LV/NYJ/LAR",yrs:"2014–",st:[["Rec Yds","11,000+"],["TD","100+"],["Rec","900+"],["All-Pro","2"],["Pro Bowl","6"]]},
+{lg:"NFL",n:"Travis Kelce",pos:"TE",tm:"KC",yrs:"2013–",st:[["Rec Yds","12,500+"],["Rec","1,000+"],["TD","75+"],["All-Pro","3"],["Titles","3"]]},
+{lg:"NFL",n:"Tony Gonzalez",pos:"TE",tm:"KC/ATL",yrs:"1997–2013",st:[["Rec Yds","15,127"],["Rec","1,325"],["TD","111"],["All-Pro","6"],["Pro Bowl","14"]]},
+{lg:"NFL",n:"Champ Bailey",pos:"CB",tm:"WAS/DEN",yrs:"1999–2013",st:[["INT","52"],["Tackles","900+"],["PD","203"],["Pro Bowl","12"],["All-Pro","3"]]},
+{lg:"NFL",n:"Charles Woodson",pos:"CB/S",tm:"OAK/GB",yrs:"1998–2015",st:[["INT","65"],["FF","33"],["Sacks","20"],["DPOY","1"],["Pro Bowl","9"]]},
+{lg:"NFL",n:"Troy Polamalu",pos:"S",tm:"PIT",yrs:"2003–2014",st:[["INT","32"],["Tackles","770+"],["FF","14"],["DPOY","1"],["Titles","2"]]},
+{lg:"NFL",n:"DeMarcus Ware",pos:"OLB",tm:"DAL/DEN",yrs:"2005–2016",st:[["Sacks","138.5"],["FF","33"],["Tackles","700+"],["Pro Bowl","9"],["Titles","1"]]},
+{lg:"NFL",n:"Julius Peppers",pos:"DE",tm:"CAR/CHI/GB",yrs:"2002–2018",st:[["Sacks","159.5"],["FF","52"],["Tackles","700+"],["Pro Bowl","9"],["All-Pro","4"]]},
+{lg:"NFL",n:"Khalil Mack",pos:"OLB",tm:"OAK/CHI/LAC",yrs:"2014–",st:[["Sacks","110+"],["FF","20+"],["Pro Bowl","7"],["DPOY","1"],["All-Pro","5"]]},
+{lg:"NFL",n:"Myles Garrett",pos:"DE",tm:"CLE",yrs:"2017–",st:[["Sacks","100+"],["Tackles","350+"],["Pro Bowl","5"],["DPOY","1"],["All-Pro","4"]]},
+{lg:"NFL",n:"Justin Tucker",pos:"K",tm:"BAL",yrs:"2012–",st:[["FG%",".899"],["Made FGs","400+"],["Pro Bowl","5"],["All-Pro","5"],["Titles","0"]]},
+{lg:"NFL",n:"Travis Frederick",pos:"C",tm:"DAL",yrs:"2013–2020",st:[["Pro Bowl","4"],["All-Pro","2"],["Games","91"],["Titles","0"],["Starts","91"]]},
+{lg:"NFL",n:"Zack Martin",pos:"OG",tm:"DAL",yrs:"2014–",st:[["Pro Bowl","9"],["All-Pro","7"],["Games","150+"],["Titles","0"],["Starts","150+"]]},
+{lg:"NFL",n:"Derrick Henry",pos:"RB",tm:"TEN/BAL",yrs:"2016–",st:[["Rush Yds","11,500+"],["TD","110+"],["Rush titles","2"],["Pro Bowl","4"],["MVP","0"]]},
+{lg:"NFL",n:"Christian McCaffrey",pos:"RB",tm:"CAR/SF",yrs:"2017–",st:[["Scrim Yds","10,500+"],["TD","80+"],["Rec","500+"],["OPOY","1"],["Pro Bowl","4"]]},
+{lg:"NBA",n:"Kevin Love",pos:"PF/C",tm:"MIN/CLE/MIA",yrs:"2008–",st:[["PTS","19,500+"],["REB","10,700+"],["3PM","1,900+"],["All-Star","5"],["Titles","1"]]},
+{lg:"NBA",n:"Rudy Gobert",pos:"C",tm:"UTA/MIN",yrs:"2013–",st:[["REB","10,500+"],["BLK","1,900+"],["DPOY","4"],["All-Star","3"],["Titles","0"]]},
+{lg:"NBA",n:"DeMar DeRozan",pos:"SG/SF",tm:"TOR/SAS/CHI/SAC",yrs:"2009–",st:[["PTS","22,500+"],["AST","3,800+"],["All-Star","6"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Isaiah Thomas",pos:"PG",tm:"SAC/PHX/BOS/etc.",yrs:"2011–",st:[["PTS","10,700+"],["PPG career-high","28.9"],["All-Star","2"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Chauncey Billups",pos:"PG",tm:"BOS/DEN/MIN/DET/NYK/LAC",yrs:"1997–2014",st:[["PTS","15,802"],["AST","5,610"],["Finals MVP","1"],["All-Star","5"],["Titles","1"]]},
+{lg:"NBA",n:"Ben Wallace",pos:"C/PF",tm:"WAS/ORL/DET/CHI/CLE",yrs:"1996–2012",st:[["REB","10,482"],["BLK","1,486"],["DPOY","4"],["All-Star","4"],["Titles","1"]]},
+{lg:"NBA",n:"Rasheed Wallace",pos:"PF/C",tm:"WAS/POR/ATL/DET/BOS/NYK",yrs:"1995–2013",st:[["PTS","14,882"],["BLK","1,309"],["All-Star","4"],["Titles","1"],["3PM","1,065"]]},
+{lg:"NBA",n:"Baron Davis",pos:"PG",tm:"CHH/GSW/LAC/CLE/NYK",yrs:"1999–2012",st:[["PTS","14,271"],["AST","5,671"],["STL","1,383"],["All-Star","2"],["Titles","0"]]},
+{lg:"NBA",n:"Gilbert Arenas",pos:"PG/SG",tm:"GSW/WAS/ORL/MEM",yrs:"2001–2012",st:[["PTS","14,332"],["PPG","20.7"],["All-Star","3"],["All-NBA","2"],["Titles","0"]]},
+{lg:"NBA",n:"Elton Brand",pos:"PF/C",tm:"CHI/LAC/PHI/DAL/ATL",yrs:"1999–2015",st:[["PTS","16,254"],["REB","8,758"],["BLK","1,398"],["All-Star","1"],["ROY","1"]]},
+{lg:"NBA",n:"Zach Randolph",pos:"PF/C",tm:"POR/NYK/LAC/MEM/SAC",yrs:"2001–2017",st:[["PTS","18,578"],["REB","10,208"],["All-Star","2"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Marc Gasol",pos:"C",tm:"MEM/TOR/LAL",yrs:"2008–2021",st:[["PTS","12,187"],["REB","6,469"],["DPOY","1"],["All-Star","3"],["Titles","1"]]},
+{lg:"NBA",n:"DeMarcus Cousins",pos:"C",tm:"SAC/NOP/GSW/LAL/etc.",yrs:"2010–",st:[["PTS","12,800+"],["REB","6,700+"],["All-Star","4"],["All-NBA","2"],["Titles","0"]]},
+{lg:"NBA",n:"Karl-Anthony Towns",pos:"C/PF",tm:"MIN/NYK",yrs:"2015–",st:[["PTS","16,000+"],["REB","7,500+"],["3PM","1,300+"],["All-Star","4"],["Titles","0"]]},
+{lg:"NBA",n:"Trae Young",pos:"PG",tm:"ATL",yrs:"2018–",st:[["PTS","12,500+"],["AST","5,700+"],["All-Star","3"],["Assist title","1"],["Titles","0"]]},
+{lg:"MLB",n:"Justin Turner",pos:"3B",tm:"LAD/BOS/etc.",yrs:"2009–",st:[["HR","195+"],["AVG",".286"],["All-Star","2"],["Titles","1"],["Hits","1,700+"]]},
+{lg:"MLB",n:"Paul Goldschmidt",pos:"1B",tm:"ARI/STL",yrs:"2011–",st:[["HR","370+"],["AVG",".291"],["MVP","1"],["Gold Gloves","3"],["All-Star","6"]]},
+{lg:"MLB",n:"Jacob deGrom",pos:"P",tm:"NYM/TEX",yrs:"2014–",st:[["Wins","90+"],["ERA","2.52"],["K","1,700+"],["Cy Young","2"],["All-Star","4"]]},
+{lg:"MLB",n:"Yu Darvish",pos:"P",tm:"TEX/LAD/CHC/SD",yrs:"2012–",st:[["Wins","120+"],["K","2,000+"],["ERA","3.60"],["All-Star","4"],["Titles","0"]]},
+{lg:"MLB",n:"Cole Hamels",pos:"P",tm:"PHI/TEX/CHC/etc.",yrs:"2006–2020",st:[["Wins","163"],["K","2,560"],["ERA","3.43"],["Titles","1"],["All-Star","4"]]},
+{lg:"MLB",n:"Felix Hernandez",pos:"P",tm:"SEA",yrs:"2005–2019",st:[["Wins","169"],["K","2,524"],["ERA","3.42"],["Cy Young","1"],["All-Star","6"]]},
+{lg:"MLB",n:"David Price",pos:"P",tm:"TB/DET/BOS/LAD",yrs:"2008–2022",st:[["Wins","157"],["K","2,600+"],["ERA","3.31"],["Cy Young","1"],["Titles","2"]]},
+{lg:"MLB",n:"Chris Sale",pos:"P",tm:"CHW/BOS/ATL",yrs:"2010–",st:[["Wins","130+"],["K","2,300+"],["ERA","3.09"],["Cy Young","1"],["All-Star","7"]]},
+{lg:"MLB",n:"Josh Donaldson",pos:"3B",tm:"OAK/TOR/etc.",yrs:"2010–2024",st:[["HR","250+"],["AVG",".262"],["MVP","1"],["All-Star","3"],["Titles","0"]]},
+{lg:"MLB",n:"Kris Bryant",pos:"3B/OF",tm:"CHC/COL/etc.",yrs:"2015–",st:[["HR","180+"],["AVG",".270"],["MVP","1"],["ROY","1"],["Titles","1"]]},
+{lg:"MLB",n:"Anthony Rendon",pos:"3B",tm:"WSN/LAA",yrs:"2013–",st:[["HR","150+"],["AVG",".279"],["All-Star","2"],["Titles","1"],["RBI","650+"]]},
+{lg:"MLB",n:"Manny Machado",pos:"3B/SS",tm:"BAL/SD",yrs:"2012–",st:[["HR","330+"],["AVG",".280"],["All-Star","6"],["Gold Gloves","3"],["Titles","0"]]},
+{lg:"MLB",n:"Xander Bogaerts",pos:"SS",tm:"BOS/SD",yrs:"2013–",st:[["HR","170+"],["AVG",".288"],["All-Star","4"],["Titles","2"],["Hits","1,700+"]]},
+{lg:"MLB",n:"Carlos Correa",pos:"SS",tm:"HOU/MIN",yrs:"2015–",st:[["HR","190+"],["AVG",".277"],["ROY","1"],["All-Star","2"],["Titles","1"]]},
+{lg:"MLB",n:"Rafael Devers",pos:"3B/DH",tm:"BOS/SF",yrs:"2017–",st:[["HR","210+"],["AVG",".280"],["All-Star","4"],["Titles","1"],["RBI","700+"]]},
+{lg:"NFL",n:"Cam Newton",pos:"QB",tm:"CAR/NE/etc.",yrs:"2011–2021",st:[["Pass Yds","29,041"],["Rush TD","75"],["TD","194"],["MVP","1"],["Pro Bowl","3"]]},
+{lg:"NFL",n:"Matt Ryan",pos:"QB",tm:"ATL/IND",yrs:"2008–2022",st:[["Pass Yds","62,792"],["TD","381"],["INT","174"],["MVP","1"],["Pro Bowl","4"]]},
+{lg:"NFL",n:"Matthew Stafford",pos:"QB",tm:"DET/LAR",yrs:"2009–",st:[["Pass Yds","57,000+"],["TD","370+"],["Pro Bowl","1"],["Titles","1"],["INT","170+"]]},
+{lg:"NFL",n:"Josh Allen",pos:"QB",tm:"BUF",yrs:"2018–",st:[["Pass Yds","28,000+"],["TD","220+"],["Rush TD","40+"],["MVP","1"],["Pro Bowl","5"]]},
+{lg:"NFL",n:"Joe Burrow",pos:"QB",tm:"CIN",yrs:"2020–",st:[["Pass Yds","17,000+"],["TD","120+"],["Pro Bowl","2"],["Titles","0"],["SB App","1"]]},
+{lg:"NFL",n:"Lamar Jackson",pos:"QB",tm:"BAL",yrs:"2018–",st:[["Pass Yds","19,000+"],["Rush Yds","6,500+"],["TD","190+"],["MVP","2"],["Pro Bowl","4"]]},
+{lg:"NFL",n:"Saquon Barkley",pos:"RB",tm:"NYG/PHI",yrs:"2018–",st:[["Rush Yds","8,500+"],["TD","65+"],["Rec","300+"],["OPOY","1"],["Titles","1"]]},
+{lg:"NFL",n:"Nick Chubb",pos:"RB",tm:"CLE",yrs:"2018–",st:[["Rush Yds","7,500+"],["TD","55+"],["YPC","5.1"],["Pro Bowl","3"],["All-Pro","1"]]},
+{lg:"NFL",n:"Justin Jefferson",pos:"WR",tm:"MIN",yrs:"2020–",st:[["Rec Yds","6,800+"],["Rec","470+"],["All-Pro","2"],["Pro Bowl","4"],["Titles","0"]]},
+{lg:"NFL",n:"Ja\'Marr Chase",pos:"WR",tm:"CIN",yrs:"2021–",st:[["Rec Yds","5,200+"],["TD","40+"],["All-Pro","1"],["Pro Bowl","3"],["Titles","0"]]},
+{lg:"NFL",n:"CeeDee Lamb",pos:"WR",tm:"DAL",yrs:"2020–",st:[["Rec Yds","5,700+"],["Rec","430+"],["Pro Bowl","2"],["All-Pro","1"],["Titles","0"]]},
+{lg:"NFL",n:"Micah Parsons",pos:"OLB/DE",tm:"DAL",yrs:"2021–",st:[["Sacks","55+"],["Pro Bowl","4"],["DPOY","0"],["All-Pro","3"],["ROY","1"]]},
+{lg:"NFL",n:"T.J. Watt",pos:"OLB",tm:"PIT",yrs:"2017–",st:[["Sacks","110+"],["FF","25+"],["DPOY","1"],["Pro Bowl","6"],["All-Pro","4"]]},
+{lg:"NFL",n:"Fletcher Cox",pos:"DT",tm:"PHI",yrs:"2012–",st:[["Sacks","65+"],["Pro Bowl","6"],["All-Pro","3"],["Titles","1"],["Tackles","400+"]]},
+{lg:"NFL",n:"Patrick Peterson",pos:"CB",tm:"ARI/MIN/PIT",yrs:"2011–",st:[["INT","35+"],["Pro Bowl","8"],["All-Pro","3"],["Return TD","4"],["Titles","0"]]},
+{lg:"NBA",n:"Ja Morant",pos:"PG",tm:"MEM",yrs:"2019–",st:[["PTS","10,500+"],["AST","3,300+"],["All-Star","2"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Anthony Edwards",pos:"SG",tm:"MIN",yrs:"2020–",st:[["PTS","10,500+"],["3PM","900+"],["All-Star","2"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Shai Gilgeous-Alexander",pos:"PG/SG",tm:"LAC/OKC",yrs:"2018–",st:[["PTS","13,500+"],["STL","700+"],["MVP","1"],["Scoring title","1"],["All-Star","4"]]},
+{lg:"NBA",n:"Donovan Mitchell",pos:"SG",tm:"UTA/CLE",yrs:"2017–",st:[["PTS","15,500+"],["3PM","1,700+"],["All-Star","4"],["All-NBA","2"],["Titles","0"]]},
+{lg:"NBA",n:"Bam Adebayo",pos:"C/PF",tm:"MIA",yrs:"2017–",st:[["PTS","9,500+"],["REB","6,000+"],["All-Star","4"],["All-Defense","4"],["Titles","0"]]},
+{lg:"NBA",n:"Zion Williamson",pos:"PF",tm:"NOP",yrs:"2019–",st:[["PTS","6,500+"],["FG%",".570"],["All-Star","2"],["ROY runner-up","1"],["Titles","0"]]},
+{lg:"NBA",n:"Victor Wembanyama",pos:"C/PF",tm:"SAS",yrs:"2023–",st:[["PTS","2,600+"],["BLK","500+"],["ROY","1"],["All-Star","1"],["DPOY","0"]]},
+{lg:"NBA",n:"Domantas Sabonis",pos:"PF/C",tm:"IND/SAC",yrs:"2016–",st:[["PTS","12,500+"],["REB","7,500+"],["All-Star","3"],["All-NBA","2"],["Titles","0"]]},
+{lg:"NBA",n:"De\'Aaron Fox",pos:"PG",tm:"SAC/SAS",yrs:"2017–",st:[["PTS","12,500+"],["AST","3,800+"],["All-Star","2"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Tyrese Haliburton",pos:"PG",tm:"SAC/IND",yrs:"2020–",st:[["AST","3,500+"],["3PM","1,000+"],["All-Star","3"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Jaylen Brown",pos:"SG/SF",tm:"BOS",yrs:"2016–",st:[["PTS","12,500+"],["All-Star","3"],["Finals MVP","1"],["Titles","1"],["All-NBA","1"]]},
+{lg:"NBA",n:"Bradley Beal",pos:"SG",tm:"WAS/PHX/LAC",yrs:"2012–",st:[["PTS","18,500+"],["3PM","1,900+"],["All-Star","3"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"John Wall",pos:"PG",tm:"WAS/HOU/LAC",yrs:"2010–",st:[["PTS","13,000+"],["AST","6,600+"],["All-Star","5"],["All-NBA","1"],["Titles","0"]]},
+{lg:"NBA",n:"Deron Williams",pos:"PG",tm:"UTA/NJN/DAL/etc.",yrs:"2005–2017",st:[["PTS","14,563"],["AST","7,459"],["All-Star","3"],["All-NBA","2"],["Titles","0"]]},
+{lg:"NBA",n:"Joakim Noah",pos:"C",tm:"CHI/NYK/etc.",yrs:"2007–2020",st:[["REB","6,942"],["BLK","1,047"],["DPOY","1"],["All-Star","2"],["Titles","0"]]},
+{lg:"MLB",n:"Corey Seager",pos:"SS",tm:"LAD/TEX",yrs:"2015–",st:[["HR","210+"],["AVG",".295"],["MVP","0"],["WS MVP","2"],["All-Star","4"]]},
+{lg:"MLB",n:"Trea Turner",pos:"SS",tm:"WSN/LAD/PHI",yrs:"2015–",st:[["SB","330+"],["AVG",".295"],["Batting title","1"],["Titles","1"],["All-Star","3"]]},
+{lg:"MLB",n:"Bo Bichette",pos:"SS",tm:"TOR",yrs:"2019–",st:[["Hits","900+"],["AVG",".285"],["All-Star","2"],["Silver Slugger","1"],["Titles","0"]]},
+{lg:"MLB",n:"Vladimir Guerrero Jr.",pos:"1B",tm:"TOR",yrs:"2019–",st:[["HR","190+"],["AVG",".280"],["MVP runner-up","1"],["All-Star","4"],["Titles","0"]]},
+{lg:"MLB",n:"Pete Alonso",pos:"1B",tm:"NYM",yrs:"2019–",st:[["HR","250+"],["ROY","1"],["HR Derby","2"],["All-Star","3"],["Titles","0"]]},
+{lg:"MLB",n:"Matt Olson",pos:"1B",tm:"OAK/ATL",yrs:"2016–",st:[["HR","260+"],["AVG",".265"],["Gold Gloves","3"],["All-Star","3"],["Titles","1"]]},
+{lg:"MLB",n:"Kyle Tucker",pos:"OF",tm:"HOU/CHC",yrs:"2018–",st:[["HR","150+"],["AVG",".285"],["All-Star","3"],["Gold Gloves","1"],["Titles","1"]]},
+{lg:"MLB",n:"Julio Rodriguez",pos:"OF",tm:"SEA",yrs:"2022–",st:[["HR","90+"],["SB","100+"],["ROY","1"],["All-Star","2"],["Titles","0"]]},
+{lg:"MLB",n:"Bobby Witt Jr.",pos:"SS",tm:"KC",yrs:"2022–",st:[["HR","90+"],["SB","130+"],["All-Star","2"],["Silver Slugger","1"],["Titles","0"]]},
+{lg:"MLB",n:"Spencer Strider",pos:"P",tm:"ATL",yrs:"2021–",st:[["K","700+"],["Wins","40+"],["All-Star","1"],["ERA","3.10"],["Titles","0"]]},
+{lg:"MLB",n:"Zac Gallen",pos:"P",tm:"ARI",yrs:"2019–",st:[["Wins","65+"],["ERA","3.35"],["K","900+"],["All-Star","1"],["Titles","0"]]},
+{lg:"MLB",n:"Framber Valdez",pos:"P",tm:"HOU",yrs:"2018–",st:[["Wins","75+"],["ERA","3.15"],["K","900+"],["All-Star","2"],["Titles","1"]]},
+{lg:"MLB",n:"Sandy Alcantara",pos:"P",tm:"MIA",yrs:"2017–",st:[["Wins","55+"],["ERA","3.19"],["Cy Young","1"],["All-Star","1"],["Titles","0"]]},
+{lg:"MLB",n:"Edwin Diaz",pos:"P",tm:"NYM/SEA",yrs:"2016–",st:[["Saves","270+"],["ERA","3.10"],["All-Star","4"],["K/9","14.0"],["Titles","0"]]},
+{lg:"MLB",n:"Craig Kimbrel",pos:"P",tm:"ATL/SD/BOS/etc.",yrs:"2010–",st:[["Saves","440+"],["ERA","2.42"],["All-Star","9"],["Titles","1"],["ROY","1"]]},
+{lg:"NFL",n:"Dak Prescott",pos:"QB",tm:"DAL",yrs:"2016–",st:[["Pass Yds","28,000+"],["TD","190+"],["Pro Bowl","3"],["Titles","0"],["Rating","98+"]]},
+{lg:"NFL",n:"Kirk Cousins",pos:"QB",tm:"WAS/MIN/ATL",yrs:"2012–",st:[["Pass Yds","39,000+"],["TD","250+"],["Pro Bowl","1"],["Titles","0"],["Rating","96+"]]},
+{lg:"NFL",n:"Jalen Hurts",pos:"QB",tm:"PHI",yrs:"2020–",st:[["Pass Yds","15,500+"],["Rush TD","40+"],["Pro Bowl","3"],["Titles","1"],["SB MVP","0"]]},
+{lg:"NFL",n:"Justin Herbert",pos:"QB",tm:"LAC",yrs:"2020–",st:[["Pass Yds","19,000+"],["TD","130+"],["Pro Bowl","1"],["Titles","0"],["ROY","1"]]},
+{lg:"NFL",n:"Trevor Lawrence",pos:"QB",tm:"JAX",yrs:"2021–",st:[["Pass Yds","14,000+"],["TD","80+"],["Pro Bowl","0"],["Titles","0"],["Playoff wins","1"]]},
+{lg:"NFL",n:"Derek Carr",pos:"QB",tm:"OAK/LV/NO",yrs:"2014–",st:[["Pass Yds","36,000+"],["TD","220+"],["Pro Bowl","4"],["Titles","0"],["Rating","93+"]]},
+{lg:"NFL",n:"Alvin Kamara",pos:"RB",tm:"NO",yrs:"2017–",st:[["Scrim Yds","10,500+"],["TD","85+"],["ROY","1"],["Pro Bowl","5"],["Titles","0"]]},
+{lg:"NFL",n:"Dalvin Cook",pos:"RB",tm:"MIN/NYJ/etc.",yrs:"2017–",st:[["Rush Yds","7,200+"],["TD","55+"],["Pro Bowl","2"],["All-Pro","1"],["Titles","0"]]},
+{lg:"NFL",n:"Tyreek Hill",pos:"WR",tm:"KC/MIA",yrs:"2016–",st:[["Rec Yds","12,000+"],["TD","95+"],["All-Pro","4"],["Titles","1"],["Pro Bowl","8"]]},
+{lg:"NFL",n:"Stefon Diggs",pos:"WR",tm:"MIN/BUF/HOU/NE",yrs:"2015–",st:[["Rec Yds","10,500+"],["Rec","800+"],["All-Pro","1"],["Pro Bowl","4"],["Titles","0"]]},
+{lg:"NFL",n:"Amon-Ra St. Brown",pos:"WR",tm:"DET",yrs:"2021–",st:[["Rec Yds","5,000+"],["Rec","400+"],["All-Pro","1"],["Pro Bowl","2"],["Titles","0"]]},
+{lg:"NFL",n:"George Kittle",pos:"TE",tm:"SF",yrs:"2017–",st:[["Rec Yds","6,500+"],["Rec","500+"],["All-Pro","3"],["Pro Bowl","5"],["Titles","0"]]},
+{lg:"NFL",n:"Bobby Wagner",pos:"LB",tm:"SEA/LAR/WAS",yrs:"2012–",st:[["Tackles","1,800+"],["Pro Bowl","8"],["All-Pro","6"],["Titles","1"],["FF","10+"]]},
+{lg:"NFL",n:"Luke Kuechly",pos:"LB",tm:"CAR",yrs:"2012–2019",st:[["Tackles","1,092"],["DPOY","1"],["Pro Bowl","7"],["All-Pro","4"],["ROY","1"]]},
+{lg:"NFL",n:"Jalen Ramsey",pos:"CB",tm:"JAX/LAR/MIA/etc.",yrs:"2016–",st:[["INT","30+"],["Pro Bowl","7"],["All-Pro","3"],["Titles","1"],["PD","100+"]]},
+];
+const body=document.getElementById("body"),empty=document.getElementById("empty"),count=document.getElementById("count");
+let league="ALL",sortKey="n",sortDir=1,openIdx=-1;
+function render(){
+ const q=document.getElementById("q").value.trim().toLowerCase();
+ let rows=P.map((p,i)=>({...p,i})).filter(p=>(league==="ALL"||p.lg===league)&&(!q||p.n.toLowerCase().includes(q)));
+ rows.sort((a,b)=>(""+a[sortKey]).localeCompare(""+b[sortKey])*sortDir);
+ body.innerHTML="";
+ empty.style.display=rows.length?"none":"block";
+ rows.forEach(p=>{
+  const tr=document.createElement("tr");tr.className="row";
+  tr.innerHTML=`<td><span class="lg ${p.lg}">${p.lg}</span></td><td class="nm">${p.n}</td><td>${p.pos}</td><td class="meta">${p.tm}</td><td class="meta">${p.yrs}</td>`;
+  tr.onclick=()=>{openIdx=openIdx===p.i?-1:p.i;render()};
+  body.appendChild(tr);
+  if(openIdx===p.i){
+   const dr=document.createElement("tr");dr.className="detail open";
+   dr.innerHTML=`<td colspan="5"><div class="stats">${p.st.map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join("")}</div></td>`;
+   body.appendChild(dr);
+  }
+ });
+ count.textContent=rows.length+" of "+P.length+" players shown";
+}
+(function(){
+ let saved=null;
+ try{saved=localStorage.getItem("allpro-theme")}catch(e){}
+ if(saved==="light")document.documentElement.setAttribute("data-theme","light");
+ document.getElementById("themeBtn").onclick=()=>{
+  const isLight=document.documentElement.getAttribute("data-theme")==="light";
+  if(isLight){document.documentElement.removeAttribute("data-theme")}
+  else{document.documentElement.setAttribute("data-theme","light")}
+  try{localStorage.setItem("allpro-theme",isLight?"dark":"light")}catch(e){}
+ };
+})();
+document.getElementById("q").oninput=render;
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));b.classList.add("on");league=b.dataset.lg;render()});
+document.querySelectorAll("th").forEach(th=>th.onclick=()=>{const k=th.dataset.k;sortDir=sortKey===k?-sortDir:1;sortKey=k;render()});
+render();
+</script>
+</body>
+</html>
